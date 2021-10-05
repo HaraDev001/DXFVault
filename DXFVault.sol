@@ -80,22 +80,20 @@ contract DXFVault is Ownable, ReentrancyGuard
     bool public _startBusdTermAutomatic;
 
     struct DXFDepositBox {
-        string "DXFDepositBox";
         uint256 startTime;
         uint256 principal;
         uint256 reward;
     }
 
     struct BUSDDepositBox {
-        string "BUSDDepositBox";
         uint256 startTime;
         uint256 endTime;
         uint256 principal;
         uint256 reward;
     }
 
-    mapping (uint256 => DXFDepositBox) private _dxfBoxes;
-    mapping (uint256 => BUSDDepositBox) private _busdBoxes;
+    mapping (address => DXFDepositBox) private _dxfBoxes;
+    mapping (address => BUSDDepositBox) private _busdBoxes;
 
     uint256 public _reserveWalletAddress;
     uint256 public _lpAddress;
@@ -198,7 +196,7 @@ contract DXFVault is Ownable, ReentrancyGuard
 
     function calcuateDXFTermReward(address account) public view returns(uint256)
     {
-
+        require(_dxfBoxes.contains(account));
     }
 
     function calcuateBUSDTermReward(address account) public view returns(uint256)
@@ -208,10 +206,12 @@ contract DXFVault is Ownable, ReentrancyGuard
 
     function depositDXFTerm(uint256 amount) external nonReentrant 
     {
+
     }
 
     function depositBUSDTerm(uint256 amount) external nonReentrant 
     {
+
     }
 
     function withdrawDXFTerm() external nonReentrant
@@ -235,6 +235,14 @@ contract DXFVault is Ownable, ReentrancyGuard
     }
 
     function getCurrentDXFTermInfo(address account) external view returns(
+        uint256 principal,
+        uint256 reward
+    )
+    {
+
+    }
+
+    function getCurrentBUSDTermInfo(address account) external view returns(
         uint256 principal,
         uint256 reward
     )
@@ -293,6 +301,11 @@ contract DXFVault is Ownable, ReentrancyGuard
     }
 
     function setAutoStartBUSDTerm(bool isAuto) external onlyOwner 
+    {
+
+    }
+
+    function getBUSDInTerm() public view returns (uint256 amount)
     {
 
     }
