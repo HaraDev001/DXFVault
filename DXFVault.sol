@@ -103,7 +103,7 @@ contract DXFVault is Ownable, ReentrancyGuard
     address public _lpAddress;
 
     uint256 private _blackListCount;
-    mapping (uint256 => uint256) _blackLists;
+    address[] _blackLists;
 
     event OwnerBNBRecovery(uint256 amount);
     event OwnerTokenRecovery(address tokenRecovered, uint256 amount);
@@ -111,6 +111,25 @@ contract DXFVault is Ownable, ReentrancyGuard
     event Withdrawal(string termStr, address indexed user);
     event PrematureWithdrawal(string termStr, address indexed user, uint256 amount);
     event Deposit(string termStr, address indexed user, uint256 amount);
+
+    modifier existBlackList(address account) 
+    {
+        uint256 index = 0;
+        bool isExist = false;
+        
+        for (index = 0; index < _blackLists.length; index++)
+        {
+            if (_blackLists[index] == account)
+            {
+                isExist = true;
+                break;
+            }
+        }
+        
+        require(isExist, "This account exists on black list, cannot operate.");
+        
+        _;
+    }
 
     constructor(
         address originalOwner,
@@ -200,7 +219,7 @@ contract DXFVault is Ownable, ReentrancyGuard
 
     function calcuateDXFTermReward(address account) public view returns(uint256)
     {
-        // require(_dxfBoxes.contains(account));
+        // require(_dxfBoxes.contains(account), "");
     }
 
     function calcuateBUSDTermReward(address account) public view returns(uint256)
@@ -208,22 +227,22 @@ contract DXFVault is Ownable, ReentrancyGuard
 
     }
 
-    function depositDXFTerm(uint256 amount) external nonReentrant 
+    function depositDXFTerm(uint256 amount) external nonReentrant existBlackList(_msgSender())
     {
 
     }
 
-    function depositBUSDTerm(uint256 amount) external nonReentrant 
+    function depositBUSDTerm(uint256 amount) external nonReentrant existBlackList(_msgSender())
     {
 
     }
 
-    function withdrawDXFTerm() external nonReentrant
+    function withdrawDXFTerm() external nonReentrant existBlackList(_msgSender())
     {
         
     }
 
-    function withdrawBUSDTerm(bool isClaimAll) external nonReentrant
+    function withdrawBUSDTerm(bool isClaimAll) external nonReentrant existBlackList(_msgSender())
     {
         
     }
