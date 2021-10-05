@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 /*
 
     syyhhdddhhhh+             `oyyyyyyyyyyy/
@@ -64,9 +66,11 @@ contract DXFVault is Ownable, ReentrancyGuard
 
     uint256 public _dxfTermFeeInitPercentage;
     uint256 public _dxfTermFeeRatePerMonth;
+    uint256 public _dxfTermFeeRateDecimals = 2;
     uint256 public _dxfTermFeeMinPercentage;
     uint256 public _dxfTermRewardInitPercetage;
     uint256 public _dxfTermRewardRatePerMonth;
+    uint256 public _dxfTermRewardRateDecimals = 2;
     uint256 public _dxfTermRewardMaxPercetage;
     uint256 private _dxfTermMonthPeriod;
 
@@ -95,8 +99,8 @@ contract DXFVault is Ownable, ReentrancyGuard
     mapping (address => DXFDepositBox) private _dxfBoxes;
     mapping (address => BUSDDepositBox) private _busdBoxes;
 
-    uint256 public _reserveWalletAddress;
-    uint256 public _lpAddress;
+    address public _reserveWalletAddress;
+    address public _lpAddress;
 
     uint256 private _blackListCount;
     mapping (uint256 => uint256) _blackLists;
@@ -111,7 +115,7 @@ contract DXFVault is Ownable, ReentrancyGuard
     constructor(
         address originalOwner,
         address vaultTokenAddress
-    ) Ownable(_original_owner)
+    ) Ownable(originalOwner)
     {
         _vaultToken             = IBEP20(vaultTokenAddress);
         _vaultTokenAddress      = vaultTokenAddress;
@@ -119,10 +123,10 @@ contract DXFVault is Ownable, ReentrancyGuard
         _vaultTokenScaleFactor  = 10 ** _vaultTokenDecimals;
 
         _dxfTermFeeInitPercentage   = 20;
-        _dxfTermFeeRatePerMonth     = 1.2;
+        _dxfTermFeeRatePerMonth     = 120;
         _dxfTermFeeMinPercentage    = 1;
         _dxfTermRewardInitPercetage = 1;
-        _dxfTermRewardRatePerMonth  = 1.2;
+        _dxfTermRewardRatePerMonth  = 120;
         _dxfTermRewardMaxPercetage  = 100;
         _dxfTermMonthPeriod         = 30;   // 30 days per one period
 
@@ -133,8 +137,8 @@ contract DXFVault is Ownable, ReentrancyGuard
         _busdTermCurrentVaultHoldings   = 0;
         _busdTermCurrentBUSDAmount      = 0;
 
-        _reserveWalletAddress = address("0x7d1edF85aA7d84c22F55f7dcf1A625ac7be88bC1");
-        _lpAddress = address("address");
+        _reserveWalletAddress = address(0x7d1edF85aA7d84c22F55f7dcf1A625ac7be88bC1);
+        _lpAddress = address(0xa271D3a00b31D916304a43022b6EAEEa6136BbA3);
 
         _blackListCount = 0;
     }
@@ -182,21 +186,21 @@ contract DXFVault is Ownable, ReentrancyGuard
 
     function recoverVaultTokens(uint256 amount) external onlyOwner
     {        
-        uint256 contractBalance = vaultToken.balanceOf(address(this));
+        uint256 contractBalance = _vaultToken.balanceOf(address(this));
         
         require(
             contractBalance >= amount,
             "Cannot withdraw more tokens than are held by the contract"
         );
         
-        vaultToken.safeTransfer(owner(), amount);
+        _vaultToken.safeTransfer(owner(), amount);
         
         emit OwnerWithdrawal(amount);
     }
 
     function calcuateDXFTermReward(address account) public view returns(uint256)
     {
-        require(_dxfBoxes.contains(account));
+        // require(_dxfBoxes.contains(account));
     }
 
     function calcuateBUSDTermReward(address account) public view returns(uint256)
