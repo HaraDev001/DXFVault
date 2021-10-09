@@ -151,11 +151,6 @@ contract DXFVault is Ownable, ReentrancyGuard
 
     receive() external payable {}
 
-    function toEther(uint256 amount) public view returns(uint256)
-    {
-        return amount.mul(_vaultTokenScaleFactor);
-    }
-
     function recoverBNB() external onlyOwner
     {
         uint256 contractBalance = address(this).balance;
