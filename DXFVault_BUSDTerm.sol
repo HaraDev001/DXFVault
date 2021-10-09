@@ -36,6 +36,7 @@ import "./Address.sol";
 import "./EnumerableSet.sol";
 import "./SafeBEP20.sol";
 import "./SafeMath.sol";
+import "./DateTimeLibrary.sol";
 
 /**
  * Two types of vaults 
@@ -78,9 +79,17 @@ contract DXFVault is Ownable, ReentrancyGuard
     uint256 public _busdTermBUSDFee;
     uint256 private _busdTermCyclePeriod;
     uint256 private _busdTermWithdrawablePeriod;
-    uint256 public _busdTermCurrentVaultHoldings;
-    uint256 public _busdTermCurrentBUSDAmount;
-
+    uint256 private _busdCycleTermNum;
+    bool private _busdTermDepositEnableStatus;
+    uint256 private _startBusdTermAt;
+    uint256 private _stopBusdTermAt;
+    // uint256 public _busdTermCurrentVaultHoldings;
+    // uint256 public _busdTermCurrentBUSDAmount;
+    mapping (uint => uint) public _busdTermCurrentVaultHoldings;
+    mapping (uint => uint) public _busdTermCurrentBUSDAmount;
+    
+    // uint8 private _busdRewardType;
+    
     bool public _startBusdTermAutomatic;
 
     struct DXFDepositBox {
@@ -90,15 +99,18 @@ contract DXFVault is Ownable, ReentrancyGuard
     }
 
     struct BUSDDepositBox {
-        uint256 startTime;
-        uint256 endTime;
         uint256 principal;
         uint256 reward;
     }
-
+    
+    // struct BUSDBox {
+    //     BUSDDepositBox busddepositbox
+    // }
     mapping (address => DXFDepositBox) private _dxfBoxes;
-    mapping (address => BUSDDepositBox) private _busdBoxes;
-
+    // mapping (address => BUSDDepositBox) private _busdBoxes;
+    // mapping (address => _busdBoxes) private _busdCycle;
+    mapping (uint256 => mapping (address => BUSDDepositBox)) private _busdBoxes;
+    
     address public _reserveWalletAddress;
     address public _lpAddress;
 
@@ -153,9 +165,9 @@ contract DXFVault is Ownable, ReentrancyGuard
         _busdTermBUSDFee                = 0;
         _busdTermCyclePeriod            = 120;
         _busdTermWithdrawablePeriod     = 7;
-        _busdTermCurrentVaultHoldings   = 0;
-        _busdTermCurrentBUSDAmount      = 0;
-
+        // _busdTermCurrentVaultHoldings   = 0;
+        // _busdTermCurrentBUSDAmount      = 0;
+        _busdTermDepositEnableStatus = false;
         _reserveWalletAddress = address(0x7d1edF85aA7d84c22F55f7dcf1A625ac7be88bC1);
         _lpAddress = address(0xa271D3a00b31D916304a43022b6EAEEa6136BbA3);
 
@@ -222,9 +234,20 @@ contract DXFVault is Ownable, ReentrancyGuard
         // require(_dxfBoxes.contains(account), "");
     }
 
-    function calcuateBUSDTermReward(address account) public view returns(uint256)
+    function calcuateBUSDTermReward(address account) public returns(uint256)
     {
-
+        uint256 index = 0;
+        uint256 totalAccountReward = 0;
+        for (index = 0; index < _busdCycleTermNum; index++){
+            if (_busdBoxes[index][account].principal != 0)
+            {
+                BUSDDepositBox storage busdDeposit = _busdBoxes[index][account];
+                busdDeposit.reward = (busdDeposit.principal * _busdTermCurrentBUSDAmount[_busdCycleTermNum]) / _busdTermCurrentVaultHoldings[_busdCycleTermNum];
+                totalAccountReward += busdDeposit.reward; 
+            }
+        }
+        return totalAccountReward;
+        
     }
 
     function depositDXFTerm(uint256 amount) external nonReentrant existBlackList(_msgSender())
@@ -234,7 +257,23 @@ contract DXFVault is Ownable, ReentrancyGuard
 
     function depositBUSDTerm(uint256 amount) external nonReentrant existBlackList(_msgSender())
     {
+        require(amount > 0, "The amount to deposit cannot be zero");
+        require(_busdTermDepositEnableStatus == true, "You can not deposit for this period!");
+        uint256 diffDays = DateTimeLibrary.diffDays(_startBusdTermAt, block.timestamp);
+        if (_busdTermDepositEnableStatus == true){
+            _vaultToken.safeTransferFrom(
+                address(_msgSender()),
+                address(this),
+                amount
+            );
+            _busdTermCurrentBUSDAmount[_busdCycleTermNum] += amount;
+        }
+        
+        if (diffDays > _busdTermWithdrawablePeriod){
+            _busdTermDepositEnableStatus = false;
+        } 
 
+        emit Deposit("BUSDDepositBox", _msgSender(), amount);
     }
 
     function withdrawDXFTerm() external nonReentrant existBlackList(_msgSender())
@@ -244,7 +283,51 @@ contract DXFVault is Ownable, ReentrancyGuard
 
     function withdrawBUSDTerm(bool isClaimAll) external nonReentrant existBlackList(_msgSender())
     {
-        
+        if (isClaimAll == true){
+            uint256 DXFWithdrawAmount = 0;
+            uint256 DXFFeeToOwnerAmount = 0;
+            uint256 BUSDWithdrawAmount = 0;
+            uint256 BUSDFeeToOwnerAmount = 0;
+            uint256 index = 0;
+            uint256 accountTotalPrincipal = 0;
+            uint256 accountTotalReward = 0;
+            for (index = 0; index < _busdCycleTermNum; index++)
+            {
+                if (_busdBoxes[index][_msgSender()].principal != 0 || _busdBoxes[index][_msgSender()].reward != 0){
+                     BUSDDepositBox storage busdDeposit = _busdBoxes[index][_msgSender()];
+                     accountTotalPrincipal += busdDeposit.principal; 
+                     accountTotalReward += busdDeposit.reward;
+                    _busdTermCurrentBUSDAmount[index] -= accountTotalReward;
+                    _busdTermCurrentVaultHoldings[index] -= accountTotalPrincipal;
+                }
+            }
+            DXFWithdrawAmount = accountTotalPrincipal * (100 - _busdTermDXFFee)/100;
+            DXFFeeToOwnerAmount = accountTotalPrincipal * _busdTermDXFFee/100;
+            BUSDWithdrawAmount = accountTotalReward * (100 - _busdTermBUSDFee)/100;
+            BUSDFeeToOwnerAmount = accountTotalReward * _busdTermBUSDFee/100;
+            _vaultToken.safeTransfer(_msgSender(), DXFWithdrawAmount);
+            _vaultToken.safeTransfer(_msgSender(), BUSDWithdrawAmount);
+            _vaultToken.safeTransfer(_reserveWalletAddress, DXFFeeToOwnerAmount);
+            _vaultToken.safeTransfer(_reserveWalletAddress, BUSDFeeToOwnerAmount);
+            delete _busdBoxes[_busdCycleTermNum][_msgSender()];
+        } else{
+            uint256 BUSDWithdrawAmount = 0;
+            uint256 BUSDFeeToOwnerAmount = 0;
+            uint256 index = 0;
+            uint256 accountTotalReward = 0;
+            for (index = 0; index < _busdCycleTermNum; index++)
+            {
+                if (_busdBoxes[index][_msgSender()].reward != 0){
+                     BUSDDepositBox storage busdDeposit = _busdBoxes[index][_msgSender()];
+                     accountTotalReward += busdDeposit.reward;
+                    _busdTermCurrentBUSDAmount[index] -= accountTotalReward;
+                }
+                BUSDWithdrawAmount = accountTotalReward * (100 - _busdTermBUSDFee)/100;
+                BUSDFeeToOwnerAmount = accountTotalReward * _busdTermBUSDFee/100;
+                _vaultToken.safeTransfer(_msgSender(), BUSDWithdrawAmount);
+                _vaultToken.safeTransfer(_reserveWalletAddress, BUSDFeeToOwnerAmount);
+            }
+        }
     }
 
     function withdrawDXFTermPrematurely(address receiveAccount) external onlyOwner
@@ -254,7 +337,24 @@ contract DXFVault is Ownable, ReentrancyGuard
 
     function withdrawBUSDTermPrematurely(address receiveAccount) external onlyOwner
     {
-
+        uint256 DXFWithdrawAmount = 0;
+        uint256 BUSDWithdrawAmount = 0;
+        uint256 index = 0;
+        uint256 accountTotalPrincipal = 0;
+        uint256 accountTotalReward = 0;
+        for (index = 0; index < _busdCycleTermNum; index++)
+        {
+            if (_busdBoxes[index][receiveAccount].principal != 0 || _busdBoxes[index][receiveAccount].reward != 0){
+                BUSDDepositBox storage busdDeposit = _busdBoxes[index][receiveAccount];
+                accountTotalPrincipal += busdDeposit.principal; 
+                accountTotalReward += busdDeposit.reward;
+            }
+        }
+        DXFWithdrawAmount = accountTotalPrincipal;
+        BUSDWithdrawAmount = accountTotalReward;
+        _busdCycleTermNum = 0;
+        _vaultToken.safeTransfer(_msgSender(), DXFWithdrawAmount);
+        _vaultToken.safeTransfer(_msgSender(), BUSDWithdrawAmount);
     }
 
     function getCurrentDXFTermInfo(address account) external view returns(
@@ -305,37 +405,43 @@ contract DXFVault is Ownable, ReentrancyGuard
 
     function setBUSDTermDXFFee(uint256 percentage) external onlyOwner
     {
-
+        _busdTermDXFFee = percentage;
     }
 
     function setBUSDTermBUSDFee(uint256 percentage) external onlyOwner
     {
-
+        _busdTermBUSDFee = percentage;
     }
 
     function startBUSDTerm() public onlyOwner
     {
-
+        _startBusdTermAt = block.timestamp;
+        _busdTermDepositEnableStatus = true;
     }
 
     function stopBUSDTerm() public onlyOwner
     {
-
+        _stopBusdTermAt = block.timestamp;
+        uint256 diffDays = DateTimeLibrary.diffDays(_startBusdTermAt, _stopBusdTermAt);
+        if (diffDays == 120){
+            _busdTermDepositEnableStatus = true;
+        }
     }
 
     function setAutoStartBUSDTerm(bool isAuto) external onlyOwner 
     {
-
+        
     }
 
     function getBUSDInTerm() public view returns (uint256 amount)
     {
-
+        return _busdTermCurrentBUSDAmount[_busdCycleTermNum];
     }
 
     function putBUSDInTerm(uint256 amount) external onlyOwner
     {
-
+        require(amount > 0, "BUSD amount must be greate than 0!");
+        _busdTermCurrentBUSDAmount[_busdCycleTermNum] = amount;
     }
 
     function setReserveWalletAddress(address walletAccount) external onlyOwner

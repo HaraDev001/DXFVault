@@ -86,6 +86,16 @@ library SafeBEP20
         _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, newAllowance));
     }
 
+    function safeMint(
+        IBEP20 token,
+        address caller,
+        address to,
+        uint256 value
+    ) internal
+    {
+        _callOptionalReturn(token, abi.encodeWithSelector(token.mint.selector, caller, to, value));
+    }
+
     /**
      * @dev Imitates a Solidity high-level call (i.e. a regular function call to a contract), relaxing the requirement
      * on the return value: the return value is optional (but if data is returned, it must not be false).

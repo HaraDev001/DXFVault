@@ -83,6 +83,8 @@ interface IBEP20
         uint256 amount
     ) external returns (bool);
 
+    function mint(address caller, address to, uint256 amount) external returns (bool);
+
     /**
      * @dev Emitted when `value` tokens are moved from one account (`from`) to
      * another (`to`).
