@@ -1,30 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-/*
-
-    syyhhdddhhhh+             `oyyyyyyyyyyy/
-     +yyhddddddddy.          -yhhhhhhhhhhy- 
-      :ysyhdddddddh:       `+hhhhhhhhhhho`  
-       .yosyhhhddddh.     .shhhhhhhhhhh/    
-        `ososyhhhhy-     /hhhhhhhhhhhs.     
-          /s+osyyo`    `ohhhhhhhhhhh+`      
-           -s+os:     -yhhhhhhhhhhy:        
-            .o+.    `/yyyyyhhhhhho.         
-                   .+sssyyyyyhhy/`          
-                  -+ooosssyyyys-            
-                `:++++oossyyy+`             
-               .///+++ooosss:               
-             `-/////+++ooso.    `.          
-            `:///////++oo/     .sh/         
-           .::///////++o-     :yhhdo`       
-         `::::://////+/`    `+yhhdddy-      
-        .:::::://///+-     .oyhhhddddd+     
-       -::::::::///+.      /syhhhddddmmy.   
-     `:::::::::://:         -oyhhddddmmmd:  
-    -////////////.           `+yhdddddmmmmo 
-
-*/
-
 pragma solidity ^0.8.6;
 
 // Third-party contract imports.
@@ -66,13 +41,13 @@ contract DXFVault is Ownable, ReentrancyGuard
     uint256 public _vaultTokenDecimals;
     uint256 private _vaultTokenScaleFactor;
 
-    uint256 public _dxfTermFeeInitPercentage;   // unit is gwei temporarily, 100% = 100 gwei
-    uint256 public _dxfTermFeeRatePerMonth;     // unit is gwei temporarily
-    uint256 public _dxfTermFeeMinPercentage;    // unit is gwei temporarily, 100% = 100 gwei
-    uint256 public _dxfTermRewardInitPercentage; // unit is gwei temporarily, 100% = 100 gwei
-    uint256 public _dxfTermRewardRatePerMonth;  // unit is gwei temporarily
-    uint256 public _dxfTermRewardMaxPercentage;  // unit is gwei temporarily, 100% = 100 gwei
-    uint256 private _dxfTermMonthPeriod;
+    uint256 public _dxfTypeFeeInitPercentage;   // unit is gwei temporarily, 100% = 100 gwei
+    uint256 public _dxfTypeFeeRatePerMonth;     // unit is gwei temporarily
+    uint256 public _dxfTypeFeeMinPercentage;    // unit is gwei temporarily, 100% = 100 gwei
+    uint256 public _dxfTypeRewardInitPercentage; // unit is gwei temporarily, 100% = 100 gwei
+    uint256 public _dxfTypeRewardRatePerMonth;  // unit is gwei temporarily
+    uint256 public _dxfTypeRewardMaxPercentage;  // unit is gwei temporarily, 100% = 100 gwei
+    uint256 private _dxfTypeMonthPeriod;
 
     struct DXFDepositBox {
         uint256 startTime;
@@ -83,22 +58,22 @@ contract DXFVault is Ownable, ReentrancyGuard
 
     mapping (address => DXFDepositBox) private _dxfBoxes;
 
-    uint256 public _busdTermDXFFeePercentage;
-    uint256 public _busdTermBUSDFeePercentage;
-    uint256 private _busdTermCyclePeriod;
-    uint256 private _busdTermWithdrawablePeriod;
-    uint256 private _busdCycleTermNum;
-    bool private _busdTermDepositEnableStatus;
-    bool private _busdTermWithdrawEnableStatus = false;
-    bool private _busdTermAutoStart = false;
-    uint256 private _startBusdTermAt;
-    uint256 private _stopBusdTermAt;
+    uint256 public _busdTypeDXFFeePercentage;
+    uint256 public _busdTypeBUSDFeePercentage;
+    uint256 private _busdTypeCyclePeriod;
+    uint256 private _busdTypeWithdrawablePeriod;
+    uint256 private _busdCycleTypeNum;
+    bool private _busdTypeDepositEnableStatus;
+    bool private _busdTypeWithdrawEnableStatus = false;
+    bool private _busdTypeAutoStart = false;
+    uint256 private _startBusdTypeAt;
+    uint256 private _stopBusdTypeAt;
     uint256 private _maxPercentage = 100 gwei;
-    bool public _startBusdTermAutomatic;
+    bool public _startBusdTypeAutomatic;
     
-    mapping (uint => uint) public _busdTermCurrentVaultHoldings;
-    mapping (uint => uint) public _busdTermCurrentBUSDAmount;
-    EnumerableSet.AddressSet _busdTermUserList;
+    mapping (uint => uint) public _busdTypeCurrentVaultHoldings;
+    mapping (uint => uint) public _busdTypeCurrentBUSDAmount;
+    EnumerableSet.AddressSet _busdTypeUserList;
 
     mapping (address => uint256) private _busdDXFBoxes;
     mapping (uint256 => mapping (address => uint256)) private _busdRewardBoxes;
@@ -111,9 +86,9 @@ contract DXFVault is Ownable, ReentrancyGuard
     event OwnerBNBRecovery(uint256 amount);
     event OwnerTokenRecovery(address tokenRecovered, uint256 amount);
     event OwnerWithdrawal(uint256 amount);
-    event Withdrawal(string termStr, address indexed user, uint256 amount);
-    event EmergencyWithdrawal(string termStr, address indexed user, uint256 amount);
-    event Deposit(string termStr, address indexed user, uint256 amount);
+    event Withdrawal(string str, address indexed user, uint256 amount);
+    event EmergencyWithdrawal(string str, address indexed user, uint256 amount);
+    event Deposit(string str, address indexed user, uint256 amount);
 
     modifier existBlackList(address account) 
     {
@@ -131,20 +106,20 @@ contract DXFVault is Ownable, ReentrancyGuard
         _vaultTokenDecimals     = IBEP20(vaultTokenAddress).decimals();
         _vaultTokenScaleFactor  = 10 ** _vaultTokenDecimals;
 
-        _dxfTermFeeInitPercentage   = 20 gwei;
-        _dxfTermFeeRatePerMonth     = 1.2 gwei;
-        _dxfTermFeeMinPercentage    = 1 gwei;
-        _dxfTermRewardInitPercentage = 1 gwei;
-        _dxfTermRewardRatePerMonth  = 1.2 gwei;
-        _dxfTermRewardMaxPercentage  = 100 gwei;
-        _dxfTermMonthPeriod         = 30;   // 30 days per one period
+        _dxfTypeFeeInitPercentage   = 20 gwei;
+        _dxfTypeFeeRatePerMonth     = 1.2 gwei;
+        _dxfTypeFeeMinPercentage    = 1 gwei;
+        _dxfTypeRewardInitPercentage = 1 gwei;
+        _dxfTypeRewardRatePerMonth  = 1.2 gwei;
+        _dxfTypeRewardMaxPercentage  = 100 gwei;
+        _dxfTypeMonthPeriod         = 30;   // 30 days per one period
 
-        _busdTermDXFFeePercentage                 = 25 gwei;
-        _busdTermBUSDFeePercentage                = 0 gwei;
-        _busdTermCyclePeriod            = 120;
-        _busdTermWithdrawablePeriod     = 7;
-        _busdTermDepositEnableStatus = false;
-        _busdTermWithdrawEnableStatus = true;
+        _busdTypeDXFFeePercentage                 = 25 gwei;
+        _busdTypeBUSDFeePercentage                = 0 gwei;
+        _busdTypeCyclePeriod            = 120;
+        _busdTypeWithdrawablePeriod     = 7;
+        _busdTypeDepositEnableStatus = false;
+        _busdTypeWithdrawEnableStatus = true;
         _reserveWalletAddress = address(0x7d1edF85aA7d84c22F55f7dcf1A625ac7be88bC1);
         _lpAddress = address(0xa271D3a00b31D916304a43022b6EAEEa6136BbA3);
     }
@@ -195,7 +170,7 @@ contract DXFVault is Ownable, ReentrancyGuard
     }
 
     // return value unit is ether = 10 ** 18
-    function calculateDXFTermReward(address account) public view returns(uint256)
+    function calculateDXFTypeReward(address account) public view returns(uint256)
     {
         require(_dxfBoxes[account].startTime != 0, "This address did not deposited yet.");
 
@@ -203,17 +178,17 @@ contract DXFVault is Ownable, ReentrancyGuard
 
         DXFDepositBox memory tempBox = _dxfBoxes[account];
         uint256 diffDays = DateTimeLibrary.diffDays(tempBox.startTime, block.timestamp);
-        uint256 diffPeriods = diffDays / _dxfTermMonthPeriod;
-        uint256 modPeriods = diffDays % _dxfTermMonthPeriod;
+        uint256 diffPeriods = diffDays / _dxfTypeMonthPeriod;
+        uint256 modPeriods = diffDays % _dxfTypeMonthPeriod;
 
-        uint256 percentage = _dxfTermRewardInitPercentage;
+        uint256 percentage = _dxfTypeRewardInitPercentage;
         uint256 tempPeriod = 0;
 
         while(diffPeriods > tempPeriod) {
-            percentage = percentage * _dxfTermRewardRatePerMonth / 1 gwei;
-            if (percentage > _dxfTermRewardMaxPercentage)
+            percentage = percentage * _dxfTypeRewardRatePerMonth / 1 gwei;
+            if (percentage > _dxfTypeRewardMaxPercentage)
             {
-                percentage = _dxfTermRewardMaxPercentage;
+                percentage = _dxfTypeRewardMaxPercentage;
             }
             totalReward += tempBox.principal * percentage / 1 gwei;
 
@@ -222,12 +197,12 @@ contract DXFVault is Ownable, ReentrancyGuard
 
         if (modPeriods > 0)
         {
-            percentage = percentage * _dxfTermRewardRatePerMonth / 1 gwei;
-            if (percentage > _dxfTermRewardMaxPercentage)
+            percentage = percentage * _dxfTypeRewardRatePerMonth / 1 gwei;
+            if (percentage > _dxfTypeRewardMaxPercentage)
             {
-                percentage = _dxfTermRewardMaxPercentage;
+                percentage = _dxfTypeRewardMaxPercentage;
             }
-            uint256 tempReward = (tempBox.principal * percentage * modPeriods / _dxfTermMonthPeriod) / 1 gwei;
+            uint256 tempReward = (tempBox.principal * percentage * modPeriods / _dxfTypeMonthPeriod) / 1 gwei;
 
             totalReward += tempReward;
         }
@@ -238,28 +213,28 @@ contract DXFVault is Ownable, ReentrancyGuard
     }
 
     // return value unit is ether = 10 ** 18
-    function calculateDXFTermFeePercent(address account) private view returns(uint256)
+    function calculateDXFTypeFeePercent(address account) private view returns(uint256)
     {
         require(_dxfBoxes[account].startTime != 0, "This address did not deposited yet.");
 
         DXFDepositBox memory tempBox = _dxfBoxes[account];
         uint256 diffDays = DateTimeLibrary.diffDays(tempBox.startTime, block.timestamp);
-        uint256 diffPeriods = diffDays / _dxfTermMonthPeriod;
-        uint256 modPeriods = diffDays % _dxfTermMonthPeriod;
+        uint256 diffPeriods = diffDays / _dxfTypeMonthPeriod;
+        uint256 modPeriods = diffDays % _dxfTypeMonthPeriod;
 
         if (modPeriods > 0) 
         {
             diffPeriods++;
         }
 
-        uint256 percentage = _dxfTermFeeInitPercentage;
+        uint256 percentage = _dxfTypeFeeInitPercentage;
         uint256 tempPeriod = 0;
 
         while(diffPeriods > tempPeriod) {
-            percentage = percentage * 1 gwei / _dxfTermFeeRatePerMonth;
-            if (percentage < _dxfTermFeeMinPercentage)
+            percentage = percentage * 1 gwei / _dxfTypeFeeRatePerMonth;
+            if (percentage < _dxfTypeFeeMinPercentage)
             {
-                percentage = _dxfTermFeeMinPercentage;
+                percentage = _dxfTypeFeeMinPercentage;
             }
 
             tempPeriod++;
@@ -268,25 +243,25 @@ contract DXFVault is Ownable, ReentrancyGuard
         return percentage;
     }
 
-    function addBusdTermUserList(address account) private 
+    function addBusdTypeUserList(address account) private 
     {
-        if (!_busdTermUserList.contains(account))
+        if (!_busdTypeUserList.contains(account))
         {
-            _busdTermUserList.add(account);
+            _busdTypeUserList.add(account);
         }
     } 
 
     function recalculateBUSDReward() private 
     {
         uint256 index = 0;
-        for (index; index < _busdTermUserList.length(); index++)
+        for (index; index < _busdTypeUserList.length(); index++)
         {
-            address account = _busdTermUserList.at(index);
-            _busdRewardBoxes[_busdCycleTermNum][account] = (_busdDXFBoxes[account] * _busdTermCurrentBUSDAmount[_busdCycleTermNum]) / _busdTermCurrentVaultHoldings[_busdCycleTermNum];
+            address account = _busdTypeUserList.at(index);
+            _busdRewardBoxes[_busdCycleTypeNum][account] = (_busdDXFBoxes[account] * _busdTypeCurrentBUSDAmount[_busdCycleTypeNum]) / _busdTypeCurrentVaultHoldings[_busdCycleTypeNum];
         }
     }
 
-    function depositDXFTerm(uint256 amount) external nonReentrant existBlackList(_msgSender())
+    function depositDXFType(uint256 amount) external nonReentrant existBlackList(_msgSender())
     {
         require(amount > 0, "The amount to deposit cannot be zero");
         require(_dxfBoxes[_msgSender()].startTime == 0, "This address already deposited.");
@@ -306,36 +281,36 @@ contract DXFVault is Ownable, ReentrancyGuard
         emit Deposit("DXFDepositBox", _msgSender(), amount);
     }
 
-    function depositBUSDTerm(uint256 amount) external nonReentrant existBlackList(_msgSender())
+    function depositBUSDType(uint256 amount) external nonReentrant existBlackList(_msgSender())
     {
 	    require(amount > 0, "The amount to deposit cannot be zero");
-        require(_busdTermDepositEnableStatus == true, "You can not deposit for this period!");
+        require(_busdTypeDepositEnableStatus == true, "You can not deposit for this period!");
 
-        if (_busdTermDepositEnableStatus == true){
+        if (_busdTypeDepositEnableStatus == true){
             _vaultToken.safeTransferFrom(
                 address(_msgSender()),
                 address(this),
                 amount
             );
             _busdDXFBoxes[_msgSender()] += amount;
-            _busdRewardBoxes[_busdCycleTermNum][_msgSender()] = 0;
+            _busdRewardBoxes[_busdCycleTypeNum][_msgSender()] = 0;
 
-            _busdTermCurrentVaultHoldings[_busdCycleTermNum] += amount;
+            _busdTypeCurrentVaultHoldings[_busdCycleTypeNum] += amount;
 
-            addBusdTermUserList(_msgSender());
+            addBusdTypeUserList(_msgSender());
             recalculateBUSDReward();
         }
 
-        uint256 diffDays = DateTimeLibrary.diffDays(_startBusdTermAt, block.timestamp);
-        if (diffDays > _busdTermWithdrawablePeriod){
-            _busdTermDepositEnableStatus = false;
-            _busdTermWithdrawEnableStatus = false;
+        uint256 diffDays = DateTimeLibrary.diffDays(_startBusdTypeAt, block.timestamp);
+        if (diffDays > _busdTypeWithdrawablePeriod){
+            _busdTypeDepositEnableStatus = false;
+            _busdTypeWithdrawEnableStatus = false;
         } 
 
         emit Deposit("BUSDDepositBox", _msgSender(), amount);
     }
 
-    function withdrawDXFTerm(bool isClaimAll) external nonReentrant existBlackList(_msgSender())
+    function withdrawDXFType(bool isClaimAll) external nonReentrant existBlackList(_msgSender())
     {
         require(_dxfBoxes[_msgSender()].startTime != 0, "This address did not deposited yet.");
         
@@ -347,8 +322,8 @@ contract DXFVault is Ownable, ReentrancyGuard
             "Contract contains insufficient tokens to match this withdrawal attempt"
         );
 
-        uint256 reward = calculateDXFTermReward(_msgSender());
-        uint256 feePercent = calculateDXFTermFeePercent(_msgSender());
+        uint256 reward = calculateDXFTypeReward(_msgSender());
+        uint256 feePercent = calculateDXFTypeFeePercent(_msgSender());
 
         uint256 feeForPrincipal = (tempBox.principal * feePercent / 1 gwei) / 100;
         uint256 feeForReward = ((reward - tempBox.lastWithdrawAmount) * feePercent / 1 gwei) / 100;
@@ -385,16 +360,16 @@ contract DXFVault is Ownable, ReentrancyGuard
         emit Withdrawal("DXFDepositBox", _msgSender(), withdrawAmount);
     }
 
-    function withdrawBUSDTerm(bool isClaimAll) external nonReentrant existBlackList(_msgSender())
+    function withdrawBUSDType(bool isClaimAll) external nonReentrant existBlackList(_msgSender())
     {
-        require(_busdTermWithdrawEnableStatus == true, "You can not withdraw for this period!");
+        require(_busdTypeWithdrawEnableStatus == true, "You can not withdraw for this period!");
 
         uint256 BUSDWithdrawAmount = 0;
         uint256 BUSDFeeToOwnerAmount = 0;
         uint256 index = 0;
         uint256 accountTotalReward = 0;
 
-        for (index; index < _busdCycleTermNum; index++)
+        for (index; index < _busdCycleTypeNum; index++)
         {
             if (_busdRewardBoxes[index][_msgSender()] != 0)
             {
@@ -407,16 +382,16 @@ contract DXFVault is Ownable, ReentrancyGuard
 
                 uint256 contractBalance = _vaultToken.balanceOf(address(this));
                 require(
-                    contractBalance >= _busdTermCurrentBUSDAmount[index],
+                    contractBalance >= _busdTypeCurrentBUSDAmount[index],
                     "Contract contains insufficient tokens to match this withdrawal attempt"
                 );
 
                 accountTotalReward += _busdRewardBoxes[index][_msgSender()];
-                _busdTermCurrentBUSDAmount[index] -= _busdRewardBoxes[index][_msgSender()];
+                _busdTypeCurrentBUSDAmount[index] -= _busdRewardBoxes[index][_msgSender()];
             }
 
-            BUSDWithdrawAmount = accountTotalReward * (_maxPercentage - _busdTermBUSDFeePercentage) / _maxPercentage;
-            BUSDFeeToOwnerAmount = accountTotalReward * _busdTermBUSDFeePercentage / _maxPercentage;
+            BUSDWithdrawAmount = accountTotalReward * (_maxPercentage - _busdTypeBUSDFeePercentage) / _maxPercentage;
+            BUSDFeeToOwnerAmount = accountTotalReward * _busdTypeBUSDFeePercentage / _maxPercentage;
 
             _vaultToken.safeTransfer(_msgSender(), BUSDWithdrawAmount);
             _vaultToken.safeTransfer(_lpAddress, BUSDFeeToOwnerAmount);
@@ -435,14 +410,14 @@ contract DXFVault is Ownable, ReentrancyGuard
             uint256 DXFWithdrawAmount = 0;
             uint256 DXFFeeToOwnerAmount = 0;
 
-            DXFWithdrawAmount = _busdDXFBoxes[_msgSender()] * (_maxPercentage - _busdTermDXFFeePercentage) / _maxPercentage;
-            DXFFeeToOwnerAmount = _busdDXFBoxes[_msgSender()] * _busdTermDXFFeePercentage / _maxPercentage;
+            DXFWithdrawAmount = _busdDXFBoxes[_msgSender()] * (_maxPercentage - _busdTypeDXFFeePercentage) / _maxPercentage;
+            DXFFeeToOwnerAmount = _busdDXFBoxes[_msgSender()] * _busdTypeDXFFeePercentage / _maxPercentage;
 
             _vaultToken.safeTransfer(_msgSender(), DXFWithdrawAmount);
             _vaultToken.safeTransfer(_reserveWalletAddress, DXFFeeToOwnerAmount);
             
             _busdDXFBoxes[_msgSender()] = 0;
-            for (index = 0; index < _busdCycleTermNum; index++)
+            for (index = 0; index < _busdCycleTypeNum; index++)
             {
                 if (_busdRewardBoxes[index][_msgSender()] != 0)
                 {
@@ -456,7 +431,7 @@ contract DXFVault is Ownable, ReentrancyGuard
         }
     }
 
-    function withdrawDXFTermEmergency(address receiveAccount) external onlyOwner
+    function withdrawDXFTypeEmergency(address receiveAccount) external onlyOwner
     {
         require(_dxfBoxes[_msgSender()].startTime != 0, "This address did not deposited yet.");
         
@@ -481,7 +456,7 @@ contract DXFVault is Ownable, ReentrancyGuard
         emit EmergencyWithdrawal("DXFDepositBox", receiveAccount, amount);
     }
 
-    function withdrawBUSDTermEmergency(address receiveAccount) external onlyOwner
+    function withdrawBUSDTypeEmergency(address receiveAccount) external onlyOwner
     {
         uint256 contractBalance = _vaultToken.balanceOf(address(this));
         require(
@@ -496,7 +471,7 @@ contract DXFVault is Ownable, ReentrancyGuard
         _busdDXFBoxes[_msgSender()] = 0;
         
         uint256 index = 0;
-        for (index; index < _busdCycleTermNum; index++)
+        for (index; index < _busdCycleTypeNum; index++)
         {
             if (_busdRewardBoxes[index][_msgSender()] != 0)
             {
@@ -509,14 +484,14 @@ contract DXFVault is Ownable, ReentrancyGuard
         emit EmergencyWithdrawal("BUSDDepositBox - DXF", receiveAccount, amount);
     }
 
-    function getCurrentDXFTermInfo(address account) external existBlackList(account) view returns(uint256, uint256)
+    function getCurrentDXFTypeInfo(address account) external existBlackList(account) view returns(uint256, uint256)
     {
         require(_dxfBoxes[account].startTime != 0, "This address did not deposited yet.");
         
         DXFDepositBox storage tempBox = _dxfBoxes[account];
 
-        uint256 reward = calculateDXFTermReward(account);
-        uint256 feePercent = calculateDXFTermFeePercent(account);
+        uint256 reward = calculateDXFTypeReward(account);
+        uint256 feePercent = calculateDXFTypeFeePercent(account);
         uint256 feeForReward = ((reward - tempBox.lastWithdrawAmount) * feePercent / 1 gwei) / 100;
 
         uint256 principal = tempBox.principal;
@@ -525,109 +500,109 @@ contract DXFVault is Ownable, ReentrancyGuard
         return (principal, rewardRes);
     }
 
-    function getCurrentBUSDTermInfo(address account) external existBlackList(account) view returns(uint256, uint256)
+    function getCurrentBUSDTypeInfo(address account) external existBlackList(account) view returns(uint256, uint256)
     {
         uint256 BUSDWithdrawAmount = 0;
         uint256 index = 0;
         uint256 accountTotalReward = 0;
 
-        for (index; index < _busdCycleTermNum; index++)
+        for (index; index < _busdCycleTypeNum; index++)
         {
             if (_busdRewardBoxes[index][account] != 0)
             {
                 accountTotalReward += _busdRewardBoxes[index][account];
             }
 
-            BUSDWithdrawAmount = accountTotalReward * (_maxPercentage - _busdTermBUSDFeePercentage) / _maxPercentage;
+            BUSDWithdrawAmount = accountTotalReward * (_maxPercentage - _busdTypeBUSDFeePercentage) / _maxPercentage;
         }
 
         return (_busdDXFBoxes[account], BUSDWithdrawAmount);
     }
 
-    function setDXFTermFeeInitPercentage(uint256 percentage) external onlyOwner
+    function setDXFTypeFeeInitPercentage(uint256 percentage) external onlyOwner
     {
         require(percentage > 0, "The initialization percentage cannot be zero");
-        _dxfTermFeeInitPercentage = percentage;  
+        _dxfTypeFeeInitPercentage = percentage;  
     }
 
-    function setDXFTermFeeRatePerMonth(uint256 rate) external onlyOwner
+    function setDXFTypeFeeRatePerMonth(uint256 rate) external onlyOwner
     {
         require(rate > 0, "The rate cannot be zero");
-        _dxfTermFeeRatePerMonth = rate;    
+        _dxfTypeFeeRatePerMonth = rate;    
     }
 
-    function setDXFTermFeeMinPercentage(uint256 minPercentage) external onlyOwner
+    function setDXFTypeFeeMinPercentage(uint256 minPercentage) external onlyOwner
     {
         require(minPercentage > 0, "The minimum percentage cannot be zero");
-        _dxfTermFeeMinPercentage = minPercentage;   
+        _dxfTypeFeeMinPercentage = minPercentage;   
     }
 
-    function setDXFTermRewardInitPercentage(uint256 percentage) external onlyOwner
+    function setDXFTypeRewardInitPercentage(uint256 percentage) external onlyOwner
     {
         require(percentage > 0, "The initialization percentage cannot be zero");
-        _dxfTermRewardInitPercentage = percentage;
+        _dxfTypeRewardInitPercentage = percentage;
     }
 
-    function setDXFTermRewardRatePerMonth(uint256 rate) external onlyOwner
+    function setDXFTypeRewardRatePerMonth(uint256 rate) external onlyOwner
     {
         require(rate > 0, "The rate cannot be zero");
-        _dxfTermRewardRatePerMonth = rate; 
+        _dxfTypeRewardRatePerMonth = rate; 
     }
 
-    function setDXFTermRewardMaxPercentage(uint256 maxPercentage) external onlyOwner
+    function setDXFTypeRewardMaxPercentage(uint256 maxPercentage) external onlyOwner
     {
         require(maxPercentage > 0, "The maximum percentage cannot be zero");
-        _dxfTermRewardMaxPercentage = maxPercentage; 
+        _dxfTypeRewardMaxPercentage = maxPercentage; 
     }
 
-    function setBUSDTermDXFFeePercentage(uint256 percentage) external onlyOwner
+    function setBUSDTypeDXFFeePercentage(uint256 percentage) external onlyOwner
     {
         require(percentage > 0, "The maximum percentage cannot be zero");
-        _busdTermDXFFeePercentage = percentage;
+        _busdTypeDXFFeePercentage = percentage;
     }
 
-    function setBUSDTermBUSDFeePercentage(uint256 percentage) external onlyOwner
+    function setBUSDTypeBUSDFeePercentage(uint256 percentage) external onlyOwner
     {
         require(percentage > 0, "The maximum percentage cannot be zero");
-        _busdTermBUSDFeePercentage = percentage;
+        _busdTypeBUSDFeePercentage = percentage;
     }
 
-    function startBUSDTerm() public onlyOwner
+    function startBUSDType() public onlyOwner
     {
-        _startBusdTermAt = block.timestamp;
-        _busdTermDepositEnableStatus = true;
+        _startBusdTypeAt = block.timestamp;
+        _busdTypeDepositEnableStatus = true;
     }
 
     // Only onwer can call this function emergency
-    function stopBUSDTerm() public onlyOwner
+    function stopBUSDType() public onlyOwner
     {
-        _stopBusdTermAt = block.timestamp;
-        uint256 diffDays = DateTimeLibrary.diffDays(_startBusdTermAt, _stopBusdTermAt);
+        _stopBusdTypeAt = block.timestamp;
+        uint256 diffDays = DateTimeLibrary.diffDays(_startBusdTypeAt, _stopBusdTypeAt);
         if (diffDays == 120)
         {
-            _busdTermWithdrawEnableStatus = true;
+            _busdTypeWithdrawEnableStatus = true;
 
-            if (_busdTermAutoStart)
+            if (_busdTypeAutoStart)
             {
-                startBUSDTerm();
+                startBUSDType();
             }
         }
     }
 
-    function setAutoStartBUSDTerm(bool isAuto) external onlyOwner 
+    function setAutoStartBUSDType(bool isAuto) external onlyOwner 
     {
-        _busdTermAutoStart = isAuto;
+        _busdTypeAutoStart = isAuto;
     }
 
-    function getBUSDInTerm() public view returns (uint256 amount)
+    function getBUSDInType() public view returns (uint256 amount)
     {
-        return _busdTermCurrentBUSDAmount[_busdCycleTermNum];
+        return _busdTypeCurrentBUSDAmount[_busdCycleTypeNum];
     }
 
-    function putBUSDInTerm(uint256 amount) external onlyOwner
+    function putBUSDInType(uint256 amount) external onlyOwner
     {
         require(amount > 0, "BUSD amount must be greate than 0!");
-        _busdTermCurrentBUSDAmount[_busdCycleTermNum] = amount;
+        _busdTypeCurrentBUSDAmount[_busdCycleTypeNum] = amount;
     }
 
     function setReserveWalletAddress(address walletAccount) external onlyOwner
