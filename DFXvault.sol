@@ -63,16 +63,16 @@ contract DXFVault is Ownable, ReentrancyGuard
     uint256 private _busdTypeCyclePeriod;
     uint256 private _busdTypeWithdrawablePeriod;
     uint256 private _busdCycleTypeNum;
+    uint256 private _maxPercentage = 100 gwei;
     bool private _busdTypeDepositEnableStatus;
     bool private _busdTypeWithdrawEnableStatus = false;
     bool private _busdTypeAutoStart = false;
     uint256 private _startBusdTypeAt;
     uint256 private _stopBusdTypeAt;
-    uint256 private _maxPercentage = 100 gwei;
     bool public _startBusdTypeAutomatic;
     
-    mapping (uint => uint) public _busdTypeCurrentVaultHoldings;
-    mapping (uint => uint) public _busdTypeCurrentBUSDAmount;
+    uint256 public _busdTypeCurrentVaultHoldings;
+    mapping (uint256 => uint256) public _busdTypeCurrentBUSDAmount;
     EnumerableSet.AddressSet _busdTypeUserList;
 
     mapping (address => uint256) private _busdDXFBoxes;
@@ -184,7 +184,8 @@ contract DXFVault is Ownable, ReentrancyGuard
         uint256 percentage = _dxfTypeRewardInitPercentage;
         uint256 tempPeriod = 0;
 
-        while(diffPeriods > tempPeriod) {
+        while(diffPeriods > tempPeriod) 
+        {
             percentage = percentage * _dxfTypeRewardRatePerMonth / 1 gwei;
             if (percentage > _dxfTypeRewardMaxPercentage)
             {
@@ -230,7 +231,8 @@ contract DXFVault is Ownable, ReentrancyGuard
         uint256 percentage = _dxfTypeFeeInitPercentage;
         uint256 tempPeriod = 0;
 
-        while(diffPeriods > tempPeriod) {
+        while(diffPeriods > tempPeriod) 
+        {
             percentage = percentage * 1 gwei / _dxfTypeFeeRatePerMonth;
             if (percentage < _dxfTypeFeeMinPercentage)
             {
@@ -257,7 +259,7 @@ contract DXFVault is Ownable, ReentrancyGuard
         for (index; index < _busdTypeUserList.length(); index++)
         {
             address account = _busdTypeUserList.at(index);
-            _busdRewardBoxes[_busdCycleTypeNum][account] = (_busdDXFBoxes[account] * _busdTypeCurrentBUSDAmount[_busdCycleTypeNum]) / _busdTypeCurrentVaultHoldings[_busdCycleTypeNum];
+            _busdRewardBoxes[_busdCycleTypeNum][account] = (_busdDXFBoxes[account] * _busdTypeCurrentBUSDAmount[_busdCycleTypeNum]) / _busdTypeCurrentVaultHoldings;
         }
     }
 
@@ -286,23 +288,22 @@ contract DXFVault is Ownable, ReentrancyGuard
 	    require(amount > 0, "The amount to deposit cannot be zero");
         require(_busdTypeDepositEnableStatus == true, "You can not deposit for this period!");
 
-        if (_busdTypeDepositEnableStatus == true){
-            _vaultToken.safeTransferFrom(
-                address(_msgSender()),
-                address(this),
-                amount
-            );
-            _busdDXFBoxes[_msgSender()] += amount;
-            _busdRewardBoxes[_busdCycleTypeNum][_msgSender()] = 0;
+        _vaultToken.safeTransferFrom(
+            address(_msgSender()),
+            address(this),
+            amount
+        );
+        _busdDXFBoxes[_msgSender()] += amount;
+        _busdRewardBoxes[_busdCycleTypeNum][_msgSender()] = 0;
 
-            _busdTypeCurrentVaultHoldings[_busdCycleTypeNum] += amount;
+        _busdTypeCurrentVaultHoldings += amount;
 
-            addBusdTypeUserList(_msgSender());
-            recalculateBUSDReward();
-        }
+        addBusdTypeUserList(_msgSender());
+        recalculateBUSDReward();
 
         uint256 diffDays = DateTimeLibrary.diffDays(_startBusdTypeAt, block.timestamp);
-        if (diffDays > _busdTypeWithdrawablePeriod){
+        if (diffDays > _busdTypeWithdrawablePeriod)
+        {
             _busdTypeDepositEnableStatus = false;
             _busdTypeWithdrawEnableStatus = false;
         } 
@@ -335,12 +336,6 @@ contract DXFVault is Ownable, ReentrancyGuard
             reward - tempBox.lastWithdrawAmount - feeForReward
         );
 
-        // Transfer feeForPrincipal to reserve wallet address
-        _vaultToken.safeTransfer(
-            _reserveWalletAddress,
-            feeForPrincipal
-        );
-
         tempBox.lastWithdrawAmount = reward;
         
         uint256 withdrawAmount = reward - tempBox.lastWithdrawAmount;
@@ -350,6 +345,12 @@ contract DXFVault is Ownable, ReentrancyGuard
             _vaultToken.safeTransfer(
                 _msgSender(),
                 tempBox.principal - feeForPrincipal
+            );
+
+            // Transfer feeForPrincipal to reserve wallet address
+            _vaultToken.safeTransfer(
+                _reserveWalletAddress,
+                feeForPrincipal
             );
 
             delete _dxfBoxes[_msgSender()];
@@ -371,36 +372,40 @@ contract DXFVault is Ownable, ReentrancyGuard
 
         for (index; index < _busdCycleTypeNum; index++)
         {
+            require(
+                _busdTypeCurrentBUSDAmount[index] >= _busdRewardBoxes[index][_msgSender()],
+                "Contract contains insufficient tokens to match this withdrawal attempt"
+            );
+            
             if (_busdRewardBoxes[index][_msgSender()] != 0)
             {
-                // TODO: Get BUSD token amount
-                // uint256 contractBalance = _busdToken.balanceOf(address(this));
-                // require(
-                //     contractBalance >= _busdRewardBoxes[index][_msgSender()],
-                //     "Contract contains insufficient tokens to match this withdrawal attempt"
-                // );
-
-                uint256 contractBalance = _vaultToken.balanceOf(address(this));
-                require(
-                    contractBalance >= _busdTypeCurrentBUSDAmount[index],
-                    "Contract contains insufficient tokens to match this withdrawal attempt"
-                );
-
                 accountTotalReward += _busdRewardBoxes[index][_msgSender()];
                 _busdTypeCurrentBUSDAmount[index] -= _busdRewardBoxes[index][_msgSender()];
             }
-
-            BUSDWithdrawAmount = accountTotalReward * (_maxPercentage - _busdTypeBUSDFeePercentage) / _maxPercentage;
-            BUSDFeeToOwnerAmount = accountTotalReward * _busdTypeBUSDFeePercentage / _maxPercentage;
-
-            _vaultToken.safeTransfer(_msgSender(), BUSDWithdrawAmount);
-            _vaultToken.safeTransfer(_lpAddress, BUSDFeeToOwnerAmount);
         }
+
+        // TODO: Get BUSD token amount
+        // uint256 contractBalance = _busdToken.balanceOf(address(this));
+        // require(
+        //     contractBalance >= accountTotalReward,
+        //     "Contract contains insufficient tokens to match this withdrawal attempt"
+        // );
+
+        BUSDWithdrawAmount = accountTotalReward * (_maxPercentage - _busdTypeBUSDFeePercentage) / _maxPercentage;
+        BUSDFeeToOwnerAmount = accountTotalReward * _busdTypeBUSDFeePercentage / _maxPercentage;
+
+        _vaultToken.safeTransfer(_msgSender(), BUSDWithdrawAmount);
+        _vaultToken.safeTransfer(_lpAddress, BUSDFeeToOwnerAmount);
 
         emit Withdrawal("BUSDDepositBox - BUSD", _msgSender(), BUSDWithdrawAmount);
 
 	    if (isClaimAll)
         {
+            require(
+                _busdTypeCurrentVaultHoldings >= _busdDXFBoxes[_msgSender()],
+                "Contract contains insufficient tokens to match this withdrawal attempt"
+            );
+            
             uint256 contractBalance = _vaultToken.balanceOf(address(this));
             require(
                 contractBalance >= _busdDXFBoxes[_msgSender()],
